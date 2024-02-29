@@ -1,69 +1,68 @@
 name: CI/CD Pipeline
-# main 브랜치에 push 이벤트가 발생하면 워크플로우가 실행된다.
 on:
   push:
     branches: [ "main" ]
 jobs:
-  # backend-test 작업을 정의한다.
   backend-test:
-    # 러너(runner) OS는 우분투 환경을 사용한다.
     runs-on: ubuntu-latest
-    steps: # backend-test 작업에서 실행될 스텝들을 정의한다.
-      - name: Check out # 프로젝트 코드 체크아웃
+    steps:
+      - name: Check out
         uses: actions/checkout@v4
-      - name: Setup Java # Java 설정
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: 'adopt'
           java-version: '17'
-      - name: Setup Gradle # Gradle 설정
+          cache: 'gradle'
+          cache-dependency-path: |
+            backend/*.gradle*
+            backend/**/gradle-wrapper.properties
+      - name: Setup Gradle
         uses: gradle/gradle-build-action@v3
-      - name: Unit Test # 단위 테스트 실행
+      - name: Unit Test
         working-directory: ./backend
         run: |
           ./gradlew test
-  # frontend-test 작업을 정의한다.
   frontend-test:
-    # 러너 OS는 우분투 환경을 사용한다.
     runs-on: ubuntu-latest
-    steps: # frontend-test 작업에서 실행될 스텝들을 정의한다.
-      - name: Check out # 코드 체크아웃
+    steps:
+      - name: Check out
         uses: actions/checkout@v4
-      - name: Setup Node # Node 환경 설정
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 18
-      - name: Unit Test # 단위 테스트 실행
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+      - name: Unit Test
         working-directory: ./frontend
         run: |
           npm ci
           npm test
-  # image-build-and-deploy 작업을 정의한다.
   image-build-and-deploy:
-    # 러너 OS는 우분투 환경을 사용한다.
     runs-on: ubuntu-latest
-    steps: # frontend-test 작업에서 실행될 스텝들을 정의한다.
-      - name: Check out # 코드 체크아웃
+    steps:
+      - name: Check out
         uses: actions/checkout@v4
-      - name: Set up QEMU # QEMU 설정
+      - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
-      - name: Set up Docker Buildx # Buildx 설정
+      - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-      - name: Login to Docker Hub # 도커 허브 로그인
+      - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - name: Backend Build and push # 백엔드 컨테이너 이미지 빌드 및 푸시
+      - name: Backend Build and push
         uses: docker/build-push-action@v5
         with:
-          context: ./backend # 애플리케이션 컨텍스트 설정
+          context: ./backend
           push: true
-          tags: opop3966/backend:latest # 이미지 태그 설정
-      - name: Frontend Build and push # 프론트엔드 컨테이너 이미지 빌드 및 푸시
+          tags: opop3966/backend:latest
+      - name: Frontend Build and push
         uses: docker/build-push-action@v5
         with:
-          context: ./frontend # 애플리케이션 컨텍스트 설정
+          context: ./frontend
           push: true
-          tags: opop3966/frontend:latest # 이미지 태그 설정
-    needs: [ backend-test, frontend-test ] # 순차적인 작업 수행을 위해 종속성을 추가
+          tags: opop3966/frontend:latest
+    needs: [ backend-test, frontend-test ]
